@@ -1,13 +1,11 @@
 
-
-
 from flask import Flask, request
 import requests
+import json
 import re
 
 app = Flask(__name__)
 
-# Ma'lumotlaringiz
 BOT_TOKEN = '8341944003:AAF_Q_-t5347BNi3aYgACYtB3BteAixHp34'
 CHAT_ID = '1232455326'
 
@@ -15,32 +13,29 @@ CHAT_ID = '1232455326'
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
     if request.method == 'GET':
-        return "Server Ready!", 200
+        return "Server Sozlandi! Terminalni kutyapman...", 200
 
     try:
-        # Terminaldan kelgan ma'lumot
+        # Terminal JSON ma'lumotni 'event_log' nomi bilan multipart formatda yuboryapti
+        # Biz uni matn ichidan sug'urib olamiz
         raw_data = request.get_data(as_text=True) or ""
         
-        # ID ni bir nechta usulda qidiramiz
-        # 1. <employeeNo> 2. <ID> 3. <cardNo>
-        emp_match = re.search(r'<employeeNo>(.*?)</employeeNo>', raw_data)
-        id_match = re.search(r'<ID>(.*?)</ID>', raw_data)
-        card_match = re.search(r'<cardNo>(.*?)</cardNo>', raw_data)
-
-        if emp_match:
-            res_id = emp_match.group(1)
-        elif id_match:
-            res_id = id_match.group(1)
-        elif card_match:
-            res_id = card_match.group(1)
+        # JSON qismini qidirish ( { dan boshlanib } gacha )
+        json_match = re.search(r'({.*})', raw_data, re.DOTALL)
+        
+        if json_match:
+            data_str = json_match.group(1)
+            data = json.loads(data_str)
+            
+            # JSON ichidan ID ni olish (Hikvision uchun odatda 'employeeNoString')
+            emp_id = data.get('employeeNoString') or data.get('employeeNo') or data.get('id')
+            
+            if emp_id:
+                msg = f"✅ Xodim o'tdi!\nID: {emp_id}"
+            else:
+                msg = "❓ Harakat bor, lekin ID topilmadi (JSON ichida)."
         else:
-            res_id = None
-
-        if res_id:
-            msg = f"✅ Xodim o'tdi!\nID: {res_id}"
-        else:
-            # Agar ID topilmasa, terminal nima yuborganini ko'rish uchun:
-            msg = f"❓ ID topilmadi. XML boshlanishi:\n{raw_data[:200]}"
+            msg = "❓ Terminal tushunarsiz format yubordi."
 
         # Telegramga yuborish
         requests.post(
@@ -51,7 +46,5 @@ def catch_all(path):
         return "OK", 200
 
     except Exception as e:
+        # Xatolikni log qilish (faqat bot egasiga)
         return "OK", 200
-
-# DIQQAT: Vercel uchun 'handler' funksiyasini olib tashladik. 
-# Flask'ning 'app' obyekti o'zi yetarli.
