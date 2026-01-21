@@ -1,7 +1,8 @@
 
+# MUHIM: Vercel Flaskni 'app' nomi bilan qidiradi
 from flask import Flask, request
 import requests
-import xml.etree.ElementTree as ET
+import re
 
 app = Flask(__name__)
 
@@ -13,27 +14,33 @@ CHAT_ID = '1232455326'
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
     if request.method == 'GET':
-        # TEST: Brauzerda ochganda ham xabar yuborish
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-                      json={"chat_id": CHAT_ID, "text": "Test: Brauzerdan so'rov keldi!"})
-        return "Server ishlayapti. Test xabari Telegramga yuborildi!", 200
+        return "Server ishga tushdi! Terminal kutyapman...", 200
 
     try:
-        xml_data = request.data.decode('utf-8')
-        root = ET.fromstring(xml_data)
-
-        employee_id = "Noma'lum"
-        for elem in root.iter():
-            if 'employeeNo' in elem.tag:
-                employee_id = elem.text
-
-        msg = f"🔔 Terminaldan xabar: ID {employee_id} o'tdi."
+        # Kelgan ma'lumotni matn ko'rinishida olish
+        xml_data = request.data.decode('utf-8', errors='ignore')
         
+        # XML ichidan employeeNo ni topish (Eng xavfsiz yo'l - Regex orqali)
+        match = re.search(r'<employeeNo>(.*?)</employeeNo>', xml_data)
+        
+        if match:
+            employee_id = match.group(1)
+            msg = f"🔔 Terminal xabari:\nXodim ID: {employee_id}\nMuvaffaqiyatli o'tdi ✅"
+        else:
+            # Agar ID topilmasa, voqeani bildirish
+            msg = "🔔 Terminal: Harakat aniqlandi, lekin ID olinmadi."
+
+        # Telegramga yuborish
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
                       json={"chat_id": CHAT_ID, "text": msg})
         
         return "OK", 200
-    except Exception as e:
-        return f"Xato: {str(e)}", 500
 
-# MUHIM: Vercel Flaskni 'app' nomi bilan qidiradi
+    except Exception as e:
+        # Xatolikni logga yozish
+        print(f"Xatolik yuz berdi: {str(e)}")
+        return "Error", 500
+
+# Vercel uchun
+def handler(event, context):
+    return app(event, context)
