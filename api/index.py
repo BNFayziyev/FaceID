@@ -1,12 +1,10 @@
 
-
 from flask import Flask, request
 import requests
 import re
 
 app = Flask(__name__)
 
-# O'zingizning ma'lumotlaringizni kiriting
 BOT_TOKEN = '8341944003:AAF_Q_-t5347BNi3aYgACYtB3BteAixHp34'
 CHAT_ID = '1232455326'
 
@@ -14,36 +12,36 @@ CHAT_ID = '1232455326'
 @app.route('/', defaults={'path': ''}, methods=['GET', 'POST'])
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
-    # Brauzerda tekshirish uchun
     if request.method == 'GET':
-        return "Server ishga tushdi! Terminal kutyapman...", 200
+        return "Server ishlayapti!", 200
 
-    # Terminaldan ma'lumot kelganda
     try:
-        # Kelgan ma'lumotni xatosiz o'qish
-        xml_data = request.get_data(as_text=True) or ""
+        # Terminaldan kelgan barcha ma'lumotni olish
+        raw_data = request.get_data(as_text=True) or ""
         
-        # Regex bilan ID ni qidirish
-        match = re.search(r'<employeeNo>(.*?)</employeeNo>', xml_data)
+        # 1-urinish: employeeNo ni qidirish
+        match = re.search(r'<employeeNo>(.*?)</employeeNo>', raw_data)
         
-        if match:
-            employee_id = match.group(1)
-            msg = f"🔔 Terminal xabari:\nXodim ID: {employee_id}\nMuvaffaqiyatli o'tdi ✅"
-        else:
-            # Agar ID bo'lmasa, shunchaki log yozamiz
-            msg = "🔔 Terminal: Harakat aniqlandi, lekin ID olinmadi."
+        # 2-urinish: Agar employeeNo bo'lmasa, shunchaki ID ni qidirish
+        if not match:
+            match = re.search(r'<ID>(.*?)</ID>', raw_data)
 
-        # Telegramga yuborish (timeout bilan, server qotib qolmasligi uchun)
-        requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-            json={"chat_id": CHAT_ID, "text": msg},
-            timeout=5
-        )
+        if match:
+            emp_id = match.group(1)
+            msg = f"✅ Xodim o'tdi! \nID: {emp_id}"
+        else:
+            # AGAR ID TOPILMASA: Terminal yuborgan matnning bir qismini Telegramga yuboramiz
+            # Bu bizga xatoni topishga yordam beradi
+            debug_info = raw_data[:300] # Birinchi 300 ta harf
+            msg = f"❓ ID topilmadi. Terminal yuborgan ma'lumot:\n\n{debug_info}"
+
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
+                      json={"chat_id": CHAT_ID, "text": msg}, timeout=5)
         
         return "OK", 200
 
     except Exception as e:
-        # Xatolikni qaytarmaslik (server crash bo'lmasligi uchun)
-        return "Internal error handled", 200
+        return "OK", 200 # Terminalga har doim OK qaytaramiz
 
-# Vercel uchun handler shart emas, Flask 'app' o'zi yetarli
+def handler(event, context):
+    return app(event, context)
