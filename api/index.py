@@ -13,7 +13,10 @@ CHAT_ID = '1232455326'
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
     if request.method == 'GET':
-        return "Server ishga tushdi! Terminaldan POST kutyapman...", 200
+        # TEST: Brauzerda ochganda ham xabar yuborish
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
+                      json={"chat_id": CHAT_ID, "text": "Test: Brauzerdan so'rov keldi!"})
+        return "Server ishlayapti. Test xabari Telegramga yuborildi!", 200
 
     try:
         xml_data = request.data.decode('utf-8')
